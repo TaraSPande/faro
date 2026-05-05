@@ -1,0 +1,1396 @@
+0:01
+HANNA HAJISHIRZI: I am very excited to be here today to talk about some of our efforts
+0:05
+in developing training recipes for building language models, and particularly for reasoning in language models.
+0:14
+OK, so let me start. I want to argue that AI is here today
+0:20
+or we've seen all this progress in AI because of open scientific research and development that
+0:28
+is happening in this area and because we had access to fully open model.
+0:33
+However, over time, we've seen a lot of research and development in this area is getting closed off.
+0:40
+But what does that mean now? Does it mean that now we are done with scientific language modeling, research,
+0:47
+and innovation? I would argue no. We need still to do a lot of research
+0:53
+to understand the science of language models, to improve them, and also build their next generation.
+0:59
+Also, we need to make a lot of advances to push a language models beyond language,
+1:06
+like in science domains language models for health and move it beyond text.
+1:12
+Also, we need to mitigate their biases and risk. Use these language models in real-world.
+1:19
+Obviously, work on LLM agents, improve their planning, reasoning, test-time scaling, and also
+1:26
+make them suitable for deployment and build efficient model. So with that I want to argue to facilitate innovation and also
+1:35
+accelerate the science of language models, we need these models to be fully open.
+1:41
+We want them to be transparent, we have access to their data. We want them to be accessible and reproducible
+1:48
+by researchers and developers. So at UW and Ai2, this is our focus.
+1:54
+We like to build an open ecosystem such that we can build language models from at different stages,
+2:02
+from pretraining to post-training to mid-training and also building agents.
+2:07
+In particular, my team is leading two efforts called open language model, OLMo and Tulu, which is
+2:15
+our open post-training recipes. I also want to highlight that this fully open ecosystem is
+2:23
+only one piece of puzzle in this landscape of AI these days.
+2:29
+So with this project OLMo, we would like to develop, study, and advance language models.
+2:35
+We want all our efforts to be fully open, documented, and reproducible. And with this, we would like to empower the AI community
+2:43
+and also inform the public about how AI works and so on.
+2:50
+OK, so in this talk, I'm going to talk about three efforts
+2:55
+that we've done to improve mostly reasoning and language
+3:01
+models. And these three directions are mostly orthogonal. And I'm going to talk about pretraining, post-training, and
+3:08
+inference test-time inference. And many of my slides are from my amazing students
+3:16
+and team members who have worked on these projects. OK, so in the past year or so, we
+3:23
+have released and launched a bunch of models and toolkits
+3:29
+that we encourage all of you to work and improve even. In pretraining, we have released OLMo 1 and 2,
+3:37
+our mixture of expert version, and also our full pretraining data.
+3:42
+During for post-training, we have developed our training recipe on top of many open weight models,
+3:50
+such as Llama, Qwen, and so on. And also we've applied that to our fully open language model
+3:58
+OLMo. And also we have all the toolkit data and so on publicly available.
+4:03
+And most recently, we've continued working on test-time scaling, which
+4:08
+we have released a S1, Open Scholar, and self-RAG, which I'm going to very briefly talk about those three as well.
+4:15
+OK, so just a quick snapshot of where results are standing
+4:20
+is in our latest release of OLMo2, which we have released OLMo at 7 billion parameter and 13
+4:28
+billion parameter scale. The base model at the end of pretraining, it is on par and some data sets better,
+4:35
+a little bit worse on some data set, but on average on par with Llama3 and Owen2.5, same as 13B.
+4:43
+Importantly, we have used less number of training tokens and we
+4:49
+argue that OLMo-2 is on this Pareto optimal curve compared to many other open weight models like Qwen-2.5, Llama-3.1,
+5:02
+and so on. So this curve shows the average performance
+5:07
+versus the approximate pretraining flops. And as you see those are dual, two stars show where to start.
+5:18
+A snapshot of our post-training efforts. So most recently, we have developed our post-training
+5:27
+recipe on top of the largest open weight model, which was Llama 405B.
+5:33
+And I'm going to talk about how this process is being done in this talk. And I can show you that Tulu 3, 405B now is on par or better
+5:44
+than DeepSeek V3 and almost on par with GPT 4o, which is very impressive showing that now we are getting a really
+5:54
+good result compared to even proprietary models. OK, so with that, I first want to start with post-training
+6:01
+because a lot of our efforts on how to make these models able to reason starts from post-training
+6:09
+or happens during the post-training. And I talk-- we'll talk about how we develop
+6:15
+Tulu along this process. So how do we build a modern large language model.
+6:22
+So it is roughly going these two stages, pretraining and post-training.
+6:28
+In pretraining, the models are trained with predicting the next token where data usually
+6:37
+comes from long and large scale data, mostly from the web.
+6:43
+But the model that comes out of this stage is not ready to be used for a lot of applications.
+6:51
+It is not safe. It's probably not able to follow human instructions. And it's not that good at reasoning
+7:00
+When post-training happens, now models can do a lot of things. It can chat. It follows instructions.
+7:07
+You can integrate it with tool use. It's able to reason. It's able to tell you when it is harmful when it doesn't follow
+7:15
+the instruction, and so on. So we do post-training to align with human preferences.
+7:22
+You've seen it when, for example, you use ChatGPT, which of these two responses you prefer.
+7:28
+And we collect these type of data to say, which of these outcomes are more aligned with humans?
+7:34
+And we do post-training to be able to follow, to do-- to use a searching code execution and so on.
+7:43
+And also we do a lot in post-training for models to be able to reason.
+7:48
+For example, in this case, we want to teach the model how to solve this arithmetic word problem.
+7:56
+OK, so how does it work? Following many standard language modeling or machine learning
+8:04
+pipelines, it requires these pieces, the data that we need to train on,
+8:11
+a training architecture and neural network, which in almost all cases it's a transformer-based architecture,
+8:18
+and a very thorough evaluation loop to tell us where we are improving
+8:23
+and where things are not going so well. And I'm going to talk about these
+8:28
+are the 3 integral parts in building a very modern successful language model data, models,
+8:35
+and algorithms. And during this talk, I'm going to talk about, what type of data
+8:41
+is important and what type of algorithms are useful for which type of data?
+8:47
+So data plays a really important role in building these post-train models and pre-trained model.
+8:55
+It comes from different sources in many different forms. And they are targeting diverse capabilities.
+9:03
+So for example we need data to be able to solve math word problems. We need data to build agents.
+9:09
+We need data to tell the model when it is not safe to respond to a query.
+9:15
+But we need to design and use different algorithms
+9:20
+on deciding when to use the right data and how-- which of these algorithms are useful when.
+9:27
+So this was our effort throughout this Tulu project, which started from 2023.
+9:35
+And now we have an open, reproducible, and state of the art post-training recipe.
+9:41
+And we can apply it on many different open rate models. In the first version, which we worked on June 2023,
+9:51
+we pretty much only showed, what is the best recipe to develop supervised finetuning data or instruction
+9:59
+data? I'm going to dig into all these a little bit deeper in the next slides. In the second version, we showed that how we bring and digest
+10:08
+a preference data. And then finally, we started doing very systematic study on,
+10:15
+what are the best algorithms to use these type of preference tuning data? And at the end of these stages, we
+10:22
+managed to show that with only open source models, we can be as good as ChatGPT, even upsetting GPT-4.
+10:32
+Finally, at the end of last year in November, we released a Tulu 3, which pretty much put all our efforts
+10:40
+together such that we develop Tulu 3. And then we applied the same recipe on OLMo
+10:46
+showing that the fully open training recipe also works. So what is this training recipe?
+10:53
+So it starts from a base model and we are following three important steps, instruction tuning,
+11:00
+preference tuning, and our new novel method, we call it reinforcement learning with verifiable reward.
+11:08
+And sometimes we have to do a bunch of back and forth between these stages and I'm going to talk about how this works.
+11:15
+OK, so let's first start getting the ingredients to start with, which is data.
+11:21
+So in order to do a successful post-training, we first need to establish meaningful evaluations
+11:29
+for targeted skills. For example, for Tulu 3 these were our goal. We want to have a general chat capabilities.
+11:37
+We want our model to be able to do to be good at knowledge, recall, math, and reasoning, coding,
+11:44
+and safety and non-compliance, multilingual, and also very precisely follow instructions even when
+11:52
+it shows some constraints. So we developed all these evaluation benchmarks,
+12:00
+we decided, what type of evaluation data set? Sometimes we also had to create the data sets ourselves
+12:06
+on how to evaluate if our model has acquired good capabilities in all of these categories
+12:14
+that I just talked about. And we also followed really good old machine learning techniques,
+12:19
+which we set some of these data sets for development and then kept some as hidden.
+12:25
+And we just evaluated at the end of-- when all our training was done.
+12:30
+So given our emphasis on these capabilities, we started collecting prompts like queries and instructions
+12:38
+that we think our model should be able to answer. We checked for licenses.
+12:44
+Are they collected with a user consent? How the licensing work.
+12:51
+And then make sure that we decontaminate them with the evaluation sets that we are evaluating on.
+12:58
+This is very important because we've noticed in the literature people show some really good data sets
+13:04
+getting really good results on certain benchmarks. But the decontamination wasn't done carefully
+13:10
+because we are talking about very complex instances and it's very easy for some of the test
+13:17
+sets to be different-- to be contaminated. So in our open instruct toolkit, we
+13:23
+have a code available for all these cases. And it's really useful to follow this.
+13:29
+OK, so now that we have the ingredients, we want to go through the first step, which is instruction tuning or sometimes called
+13:37
+supervised finetuning. What does that mean? It basically is a very simple step.
+13:43
+It takes a lot of these prompts and completions and then fine tune a pre-trained language
+13:50
+model to be able to follow these instructions. So for example, we can have a queries like answer
+13:57
+these questions one by one. Summarize this talk like many of these type of questions
+14:03
+and then the final answers. But how do we curate this data? How do we source this data?
+14:10
+We can have and source this data through human annotation, which
+14:15
+obviously it is costly, it is time-consuming, and also it has high variance right now.
+14:20
+Sometimes, particularly in tasks like reasoning, we are dealing with complex annotations.
+14:26
+And it might not be well suited for general annotators.
+14:31
+Another approach, which we introduced in our 2023 self
+14:37
+and strike paper was to synthetically generate these data with self-loop or self-instruction loop
+14:45
+with another language model. So synthetic data generation. And obviously, it is good.
+14:52
+It's really good in a lot of cases, but it's going to be noisy as well OK, and it is biased to the language model
+14:59
+that we are generating this data from. And most recently, we've discovered the optimal solution
+15:05
+is combining both of them, which we build a hybrid collection of data coming from human annotation
+15:13
+and also from synthetically generated by other language models.
+15:19
+So data curation has been received well within the open source community.
+15:26
+We had some earlier work in 2022 on, we called it natural instructions and supernatural
+15:34
+instructions where we only focused on NLP relevant tasks
+15:39
+where we were looking at tasks-like question answering, summarization, translation, and so on.
+15:44
+Then we developed the self-instruct, a framework where we generate data synthetically.
+15:49
+This has picked up really well within the community. Many next efforts have been introduced within the community
+15:58
+to generate more and more synthetic data sets like Alpaca, Vicuna, and so on and so forth.
+16:05
+We also have a very good collection of data sets that are mostly focused on short form question
+16:14
+answering type tasks, like for MV1 and so on. So I'm just listing a few of these data sets here.
+16:22
+For the full set, please check out Tulu 3 paper. We listed a lot of publicly available data
+16:29
+sets, either manually curated, expert curated, or synthetically generated wider community.
+16:36
+And we combine a lot of them. Use the ones that we saw most signal out of them in
+16:42
+to build our final SFT mix. OK, so now we have looked at all these data that are available.
+16:52
+And now, we are doing these two repeated parallelizable tracks where we collect this data.
+16:58
+And now we want to mix them such that we get high accuracy in the capabilities that we care about.
+17:05
+This requires substantial effort. Why? Because, for example, if I add a lot
+17:11
+of data about form generation, probably my math reasoning capabilities drop.
+17:17
+If I add a lot of data on math reasoning, probably I would lose this creative task
+17:23
+like poem generation. So it's a pretty challenging task to keep a good balance of all these data
+17:31
+such that we are getting high accuracy across the board.
+17:36
+So we are exploring and also in the community people are exploring many different ways
+17:42
+of this data mixing including manual empirical analysis,
+17:49
+automated mixing. And I think the literature is evolving
+17:55
+and there are a lot of active research going on in this area. OK, so let me show you some of our efforts
+18:03
+and how we did this data mixing in our Tulu 1, which was very simple.
+18:09
+There were not much data available in 2023 such that we start doing all these combinations.
+18:17
+So first, we combined all available open data sets that were available back then.
+18:23
+And I'm listing them on the left. And some of them are created by humans, general public,
+18:31
+or experts. And then some are synthesized with some of the most successful
+18:37
+language models back then. Then, similar to what I just described,
+18:42
+we started looking at evaluation sets or data
+18:48
+sets targeted to evaluate certain capabilities. For example, this is the outcome of our finetuning
+18:55
+when we were evaluating on chat type evaluation sets.
+19:01
+And here are how the results compare. The red ones mean the results are not that good.
+19:07
+And then the blue ones show, OK, successful results. As you see here, that GPT4-Alpaca
+19:13
+shows good high results on chat type evaluations. ShareGPT also showing good results on chat evaluation.
+19:21
+So we did that across many different verticals knowledge, reasoning, coding, multilinguality, and safety.
+19:28
+And some of these results are quite exciting. For example, when we train with chain-of-thought data,
+19:33
+we see higher numbers on reasoning type evaluation sets.
+19:39
+OK, so now the question is, how do we combine them? How do we take the best of all of these worlds?
+19:46
+Because as you saw, this data-- actually let me go back here-- this data like shared
+19:53
+GPT, or self-instruct, or like I would say,
+19:58
+open the system one that is good in chat, they are not that good in knowledge or reasoning type
+20:03
+test. So it is important to get the best of all these worlds. So we try to look at the data sets
+20:10
+that show high numbers across one of these verticals and I started combining them.
+20:16
+And as a result, we have a human plus synthetic type data.
+20:21
+I want to highlight that we saw really good results with shared GPT early on, but we later dropped this data
+20:27
+because license and the way the data was collected was not that good.
+20:33
+So we dropped this data in our next versions. OK, now with the emphasis on reasoning,
+20:41
+I want to dig a little bit deeper on, what type of data, particularly is useful for reasoning?
+20:49
+Why is this challenging? Let me give you a math example. We want to solve this problem. The question is you can read this here.
+20:56
+A store has buy 2 get 1 free deal on shirts. Each shirt costs $25. If Sarah wants to buy 7 shirts, how much will she spend?
+21:05
+So one quick thing could be, OK, I have this problem. The final answer is $125.
+21:11
+It's pretty easy to come up with that number. However, if I just fine tune a model
+21:18
+with this input-output setting, probably I won't get that much out of this training instance.
+21:25
+So we all observe in the community that it's really better if we start integrating and using
+21:33
+this type think chain-of-thought output where we say we're going to break this down into, OK, step
+21:39
+one, do this, step two, do this, and then break this down as if you are explaining it to a child
+21:45
+how to follow these steps to come up with that final number $125.
+21:51
+So why do to summarize, why do we think chain-of-thought data is helpful for reasoning.
+21:57
+It's helping the model to handle complex multi-step problems much
+22:03
+easier. It also starts revealing the model's reasoning process.
+22:09
+Also, one thought is a lot of these models during pretraining have seen a lot of this type
+22:16
+think chain-of-thought data. And then this starts to boost them up,
+22:22
+to boost this capability up of saying, OK, remember, you knew how to think step by step.
+22:28
+Bring them up when you are looking at these more complex math reasoning problems.
+22:34
+Also, when we look at these type of annotations. These type think chain-of-thought data makes
+22:41
+it much easier to spot errors in the logic and also it resembles how we are explaining things to humans
+22:49
+or how humans thought process work. OK, these are all very good points
+22:55
+about why this type think chain-of-thought data is important. However, it's becoming more and more challenging to observe
+23:05
+and obtain manual annotation for this type think chain-of-thought data.
+23:11
+It is time consuming. It is very expensive. and it often requires expert annotation.
+23:19
+The example that I showed in the last slide was quite easy, but think of more challenging math problems.
+23:26
+We need experts to annotate those. And obviously, it is difficult to scale.
+23:31
+And also it is not diverse enough. It is very hard to boost diversity
+23:36
+with all these limitations that we have when we want to collect this type think chain-of-thought data.
+23:43
+So again, our approach to address this solution was hybrid data curation where we
+23:51
+look at data mixing and also selecting from existing resources.
+23:56
+We also did some very-- observed a very interesting paper from the literature
+24:03
+where they proposed to use different personas to generate diverse data.
+24:11
+So I'm referring to this paper here, but the idea is we're going to look at different skills,
+24:19
+for example, math coding, precisely follow instruction. But then we devise different personas,
+24:27
+and then we ask the model to generate data for those skills, given the persona that it is looking at.
+24:36
+This would ensure high diversity and enables us to scale further.
+24:42
+What does that mean? So we develop this prompt.
+24:47
+We say we want to create this data with this specific persona in mind.
+24:52
+For example, we want to create a math problem given that we are creating it for a chemical kinetics
+24:59
+researcher. And now the problem looks like this. Dr. Smith, a chemist, is studying this and so on.
+25:08
+Or we say we want to solve this logical reasoning problem, again, for that persona,
+25:13
+for that chemical kinetics researcher. We tried many different personas.
+25:19
+We designed this type of math problems for experts, for children, six-year-old children,
+25:29
+or a computer scientist, and musician. So you give many different personas to the model,
+25:36
+and then we ask the model to generate it specifically designed for that persona.
+25:41
+With that, we created more than 150k hard math problems and 50k
+25:49
+grade school math problem. We created 35k Python coding and precise instruction following.
+25:58
+Then these were mostly for generating prompts because this was the point of boosting diversity
+26:06
+for the types of problems that we are getting. Then we used a combination of GPT-4o and Claude Sonnet
+26:15
+to generate a step by step solutions, for example, for a given math problem, a coding
+26:21
+or precise instruction following. OK, so now let's look at the result.
+26:27
+How successful and useful these data are? OK, so let me walk through how we read these figures.
+26:34
+So in the figures below, you are seeing results on two data
+26:41
+sets math and GSMK8, which are due to popular math data sets.
+26:49
+Then each of these bars show a combination of using our public data sets, like the data sets
+26:57
+that are available, for example, for math or general purpose, combined with this persona-driven synthetic math
+27:05
+problems. And we varied the amount of these persona-driven math data
+27:11
+in our experiments. So the first bar, the yellow bar just
+27:17
+uses the general public data. And the last bar does have a 50-50 between persona-driven
+27:25
+data and then general data. And as you see, over time, we see improvement
+27:32
+mostly on the math. On GSM8K, we saw less improvement
+27:37
+and we think the reason is because GSM8K
+27:43
+are simpler math word problems like grade school math word problems. And we think the available public data set were already
+27:52
+good enough. So that's why we didn't gain much. So to summarize, adding more persona-driven data consistently
+28:00
+improves math performance. GSM8K improves, but it's much less
+28:06
+and I kept a balance on how to use this type of persona.
+28:12
+OK, so we did another step to filter the data.
+28:20
+How do we do that? For every word problem or every instance
+28:26
+that was generated synthetically, we actually went ahead and asked GPT-4 to generate
+28:33
+multiple reasoning paths. And then we basically did self-consistency. So in one of the classes earlier,
+28:41
+I think this semester or last semester, you learned about self-consistency. And here is what we used.
+28:47
+And then we basically saw, which one has majority vote and kept those reasoning paths that gave us that better answer?
+28:57
+So through this, we managed to filter a lot of data, almost 40%
+29:05
+of the data. And now, we are seeing that using only 60% of the data,
+29:11
+we are getting similar performance on math. This new pink is the filtered process data,
+29:19
+which is almost on par. I would say this is just error bar on how different they are from the original mix.
+29:26
+And we saw more significant boost on the GSM8K,
+29:31
+highlighting that with this better filtered data, we are getting higher accuracy on GSM8K.
+29:38
+So at the end of the day, now we are able to use this 60% of the data and we
+29:45
+are getting good performance from this synthetically generated data.
+29:50
+OK, so there are many other approaches in the research community to generate chain-of-thought data.
+29:57
+One is obviously manual human annotation. As I mentioned this is great.
+30:03
+This is very accurate, but we can pretty much have a limited scale.
+30:08
+And sometimes it is hard to increase diversity
+30:13
+in the reasoning style. And there are methods that they convert math problems
+30:18
+into Python code and then generate solutions that way. This is great because it guarantees correctness
+30:25
+through execution. The only issue, it's a little bit less natural language
+30:32
+reasoning, the same way that you are explaining it to a child. So somewhat less intuitive, but it's still very interesting
+30:39
+and it works really well. And also this type of self-generated chain-of-thought,
+30:46
+which is scalable to many problems, the quality of the model really depends on the base model.
+30:52
+And we did a combination of all of these methods.
+30:58
+OK, so putting all this together, so I talked a lot about how we created
+31:05
+and curated these synthetic data for math and reasoning. Then we put all of these together and built our data mix
+31:14
+for supervised finetuning and this is the outcome, which is the combination
+31:20
+of human and synthetic data and we finally built Tulu SFT. So let's discuss a little bit of results.
+31:28
+So this table has a lot of numbers, but I want to show some of the ablations we've done.
+31:34
+The columns show many different data sets that we evaluated on like MMLU, TQA, PopQA,
+31:43
+and they are all evaluating some of those core skills that we cared about.
+31:49
+And this is our final results on the final SFT mix that we discovered.
+31:54
+And these are some of the ablations. For example, if we remove wild Chad, which
+32:00
+is our data mix to approach general chat capabilities,
+32:05
+our average will get into 58.9, with probably the biggest
+32:11
+drop on, as you see here AlpacaEval on chat evaluations.
+32:16
+Or without the persona data, we get to 58.6 where we saw drops on, for example, math, and so on.
+32:26
+Or math data, if we remove that, we see a really significant drop on this type of math evaluation.
+32:34
+Another thing that we were very careful was we want to make sure our model is safe.
+32:41
+So we added safety data. But at the same time, we want to make sure that it doesn't drop the capabilities,
+32:49
+the general capabilities of the model. And this is what we've observed, that adding safety data
+32:54
+doesn't hurt general capabilities of the model. This is also comparing the Tulu SFT data
+33:01
+with the other data sets that were available in the community like mammoth data or RLHF.
+33:07
+These were some of the most popular data sets that existed in the community. And this is the gains that we are having for the 656.
+33:16
+And these were our earlier Tulu 2 SFT is like our earliest data mix in our earlier versions.
+33:23
+So in overall, we argue that this is a really good SFT mix.
+33:29
+A lot more can be done here. And it's really good if people in the open source community
+33:36
+also start improving this data mix. OK, so step one is done.
+33:43
+We took our base model and then did supervised fine tuning
+33:49
+with a very carefully curated data mix. Next step is preference tuning where
+33:57
+it works with a reward model. OK, let's see what happens here. So at the preference finetuning stage--
+34:05
+I think Jason also talked about this-- the goal is we want to align to human preferences.
+34:13
+For example, we have this query. We say, write a haiku about AI.
+34:21
+It talks about the model comes and outputs something. We want to give thumbs up, thumbs down if the output seems
+34:27
+good or bad. But in practice, what we've observed,
+34:32
+the role of preference finetuning is to show a very strong training signal to make style,
+34:41
+to have a better style of chats. And it shows really higher improvements
+34:47
+on chat type evaluation. It also keeps improving the basic capabilities
+34:53
+that we were targeting. But in general, we saw lower absolute magnitude
+34:58
+of improvement, for, for example, math type capabilities So let's dig a little bit deeper how
+35:11
+the preference data looks like. So we have this prompt. Let's say explain the moon landing
+35:17
+to a six-year-old in a few sentences. We want our model to generate two responses
+35:25
+And then the preference instance tells us one response is better than the other one.
+35:30
+And it can be annotated by humans saying that this response to me seems much more
+35:37
+suitable for a six-year-old. Most recently, people look at this called RLAIF where instead
+35:46
+of humans, we can have another AI model, let's say GPT-4 or Claude Sonnet or so--
+35:53
+to evaluate which of these responses are better for a 6-year-old. And then the algorithm to update that at some level sometimes
+36:02
+it's called RLAIF. So this is the nature of data. Why does this data play an important role in building
+36:12
+and post-training stages is in a lot of cases, we are dealing with open-ended generations
+36:19
+and have coming up with some absolute numbers to say oh, OK, this response is good, is hard.
+36:27
+However, it's much easier to deal with comparison to say this response is generally
+36:33
+better than the other one. So the task of annotation has become much easier.
+36:39
+But then we cannot use the same supervised finetuning algorithm
+36:46
+to deal with this type of preference data. Now, let me unpack RLHF or reinforcement learning
+36:52
+with human feedback. How do we integrate and use this type of preference data?
+36:59
+So we will use reinforcement learning. How does it work? This is the most generic form.
+37:06
+The idea this is the most generic definition of RL. The idea is for a given policy, which
+37:14
+is generate the next token, we generate this next token, we interact with an environment, we get some reward
+37:22
+from the environment if that generated token was good or bad, and then update the state of the world.
+37:28
+In RLHF, the state is getting updated from the prompts
+37:34
+that are getting fed into the policy. The action is updating and finding what responses are.
+37:46
+And then the environment is actually a reward model where it tells us how good a model--
+37:55
+tries to up a model that preferences that this response is generally preferred over the other one.
+38:01
+So this is of how RLHF works. This reference data will fit into a reward model, where
+38:09
+reward model is actually a neural network that is trained to tell us, for a given prompt, which response
+38:16
+is better? OK. How do we optimize this complex situation through PPO training?
+38:24
+Let's dig a little bit deeper. The idea is we want to maximize the reward.
+38:31
+We want to get the maximum reward as possible such
+38:36
+that we want to constrain the model to stay as close as possible to the baseline model.
+38:43
+We want the policy to don't go that far from the originally
+38:49
+trained model. So this is establishing a very important balance between make sure you are aligned with those preferences
+38:57
+that are provided to you. However, don't go too far from the original model
+39:03
+that you have in mind. Now, in the last year or so, many different variants
+39:10
+are introduced on how to optimize that objective.
+39:16
+So last year, we had this paper called direct preference optimization or DPO, where the idea is,
+39:25
+what if we just use gradient ascent on this equation? OK, let's ignore all that.
+39:31
+Now, we have this reward model and then we want to optimize for that reward.
+39:36
+Let's directly optimize for these human preferences and then model it as a ranking model.
+39:46
+So how does the DPO training work. It's like this where we remove a lot of these details here.
+39:53
+And we directly go from the preference reference data into policy.
+39:58
+And then given that reference model, we want to see how close this preference
+40:04
+data is to the policy. So many new variants of GDPR also introduced.
+40:10
+So here I'm summarizing them. This is the PPO, the original formulation. Here is the direct preference optimization, which
+40:19
+directly optimizes the policy. Given the preference data, I would always say think of it
+40:24
+as some ranking objective, and then the newer variants
+40:29
+like, which even makes it more simplified where it doesn't even use a preference--
+40:35
+a reference model, another variant like length normalized PPO, which normalizes the same log likelihood,
+40:45
+but make it normalized for the lengths.
+40:50
+So in this work, we started actually digging deeper
+40:59
+into all these algorithms that exist. Particularly, we looked at comparing between DPO and PPO.
+41:07
+So they are all different. They are getting different types of parameters.
+41:13
+They have different implementation complexity, memory usage throughput, and so on. Just to give you a very brief idea, in general,
+41:22
+we saw PPO performs better than DPO in almost all cases.
+41:27
+However, it is much more complicated to implement and make it work, particularly for larger models.
+41:34
+Why? Because at P for PPO, we need to have two models running like we.
+41:39
+We have the reward model as a neural network and also the policy model, which is the actual language
+41:46
+model that generates token. So it really depends on the developers preference
+41:53
+on which constraints they have. OK, so let me dig a little bit deeper and tell you
+42:01
+what things we ablated to figure out which model to use.
+42:07
+OK, for DPO, remember, we had preference data and policy model. For PPO, we have all these components, preference data,
+42:14
+the type of reward model, and the neural network that we have here. We have the generations the prompts and the policy model.
+42:22
+So I'm showing the final results. I'm not going into a lot of details.
+42:28
+But here are the results. Let's say this is the average performance on a lot of tasks that we've looked at.
+42:34
+This is the initial SFT result. When we do DPO with some weaker preference tuning,
+42:43
+we saw 2% boost. When we do a lot of ablations and very careful curation
+42:51
+of preference data, we saw significant boosts. Look at this, we go from 56 to 61
+42:57
+just with better data selection and data curation here. Then we replace the DPO with PPO we saw now we just
+43:07
+use the exact same data. We just replace the algorithm, DPO with PPO, and we saw one point boost here.
+43:14
+Then we thought, OK, now this is very promising. PPO is great. Let's now think of a bigger reward model.
+43:22
+Because remember, a reward model plays this environment role and we try to make our model as close as possible
+43:30
+to this preference data. When we started using a bigger reward model
+43:36
+we didn't saw that much improvement, less than about half a point improvement.
+43:42
+And then finally, when we started mixing prompts of, what type of specific design prompts for some tasks?
+43:52
+On average, we didn't see much gain. However, I want to highlight that this final step on average
+44:00
+didn't show us a lot of improvement. But very interestingly, when we only focused on reasoning,
+44:07
+particularly GSM8K, when we started bringing up prompts that are very useful, like for improving the reasoning
+44:16
+capabilities, we saw significant boosts here that here we learned
+44:21
+when we introduce prompts that are domain specific for some of those capabilities, they play a really important role.
+44:30
+OK, so if you look at this whole thing, this was the choice of algorithm, this was the choice of data, algorithm model data.
+44:38
+So again, we saw a really big boost on data.
+44:43
+So takeaways from this. The most important factor in building
+44:48
+a really good preference tuning algorithm for us was high quality data.
+44:54
+PPO works better than DPO. But DPO is much cheaper to experiment
+45:00
+with and do a ablations on data, and it's more practical for development.
+45:07
+Scaling RM reward models help, but not significantly.
+45:12
+Using in-domain prompts yield performance gains, particularly for domains like [INAUDIBLE].
+45:20
+OK, so now we put all of those together when we want to build Tulu 3.
+45:26
+So from our last study, we learned prompt selection is really important.
+45:33
+So we looked at many different combinations on how to curate data. And this was our best mix.
+45:39
+We want to use some of the prompts that we already used in SFT.
+45:44
+We thought this is really good to maintain accuracy and performance.
+45:49
+We also brought some prompts, some new prompts that we hadn't seen during SFT.
+45:55
+And then we started bringing in out of domain prompts, for example, from domains
+46:00
+that we did not study in SFT. OK, so we then did a lot of response generation
+46:09
+from all these models. So we had some weaker models like 7B models, llama 7B,
+46:19
+for example, almost 7B all the way to very models like GPT-4
+46:25
+or because we want to look at the preferences to see, which of these outputs are more preferable?
+46:31
+Importantly, we brought on-policy data. Remember, we want to improve our Tulu 3 SFT.
+46:40
+This is the model. This is the policy model that we want to improve upon. So we made sure to bring some of these data points and these Tulu
+46:49
+3 completions such that we can say this outcome is preferred over something worse or we need to get to something
+46:58
+better, which is, for example, the outcome of GPT-4. So we also show that it is important to use
+47:05
+this on-policy data. Then we did particularly RLAIF where
+47:12
+we asked GPT-4 to tell us, which of these completions are better?
+47:18
+And we ask it to measure across these four categories, helpfulness, instruction following-- how accurately it
+47:25
+could follow instructions-- how truthful, and how honest these responses are.
+47:30
+And then we binarize them according to-- and then said, which is chosen, which is rejected.
+47:36
+To optimize the algorithm for optimization, we did a DPO, PPO, and CPO.
+47:43
+Again, similarly, we didn't see much gains from PPO. And for simplicity, we stick with DPO for this.
+47:52
+OK, so here are these bottom figures show some of our ablations.
+47:59
+So actually let's look at the most-- the right-hand one, which is what LLM as Judge
+48:06
+we used for telling us, which is preferred? Which is rejected?
+48:12
+And we looked at many different highly capable models like GPT-4 or Llama 4 or 5, and so on.
+48:20
+And we saw a little bit better results on GPT-4, and that's what we stick with.
+48:27
+This middle figure evaluates the off-policy versus on-policy preferences.
+48:35
+And as you see, this is the initial SFT with off-policy.
+48:40
+We got to 60 adding on-policy. Only with on-policy we get 60.7 and then combining all of them,
+48:49
+we got the best numbers. Here, we also checked if it is useful to bring
+48:57
+in new out of domain prompts or we just reuse some of the prompts that we had from the initial SFT.
+49:04
+And as you see again, bringing new prompts also improves results.
+49:10
+OK, so what happened up to here? We did all our instruction tuning, supervised finetuning.
+49:19
+We did our preference tuning. And now I want to talk about our third step, which we introduced
+49:25
+as part of our Tulu 3 effort, reinforcement learning with verifiable reward.
+49:35
+OK, so let's look at these curves. At the end of DPO or preference tuning stage,
+49:46
+I'm going to show you these three figures. So this is training steps on the x-axis.
+49:54
+And on the y-axis, we are looking at evaluation performance.
+49:59
+And as you see over time, for example, in the AlpacaEval,
+50:05
+we see the improvements are almost getting plateaued. For IFEval, which is how we do instruction following,
+50:15
+interestingly, we see when we increase the training steps in for our DPO, we see a little bit drop in performance.
+50:25
+And for GSM8K, which is our proxy for reasoning,
+50:31
+we see initial improvement. But then after some time, we started seeing overfitting
+50:36
+and then dropping performance. So particularly, for these more complex tasks
+50:44
+like following instructions and doing reasoning, over time we see over optimization is happening,
+50:52
+which is not good. Then we started thinking a little bit about this.
+50:59
+We are using this neural reward model to tell us if some preferences are good or bad.
+51:10
+This neural network tries to assign a score to every instance
+51:15
+now. OK, so it tells us for this give this reward model is trained to tell, which is chosen?
+51:23
+Which is rejected? But at the end of the day, for every completion it tells us, what is the score of this completion?
+51:31
+For example, for something like this, for some prompt like this, it would give us this score of 10.5.
+51:39
+If we change the input, it might give us another score. Also there are studies in the literature
+51:45
+that this human feedback that, OK, this A is preferred over B
+51:51
+is not the gold standard of saying what is the outcome? What is a good reward score for this sentence, for example?
+52:02
+Instead, we thought for tasks that we can verify their correctness, we can use a much, much simpler
+52:12
+reward model or in fact, we can replace this reward model with something rule-based.
+52:19
+For example, if my query is, what is 2 plus 2? We can easily say if the answer is gold,
+52:27
+return 1, otherwise return 0. If we were only using that neural reward model,
+52:34
+it might have given us another score like 1,000 or it might
+52:39
+have given us something like, I don't know, 5.5. What is the intuition or what is the meaning behind that
+52:45
+score that the reward model is giving us? So that was a very question this.
+52:51
+And then we said for tasks that we can verify their final outcome, what if we just
+52:58
+remove that complex setup and use a much simpler rule-based model.
+53:04
+And this is exactly what we did. So let's look at our RL setting.
+53:10
+The prompts come in. The state gets updated. The action are generating next tokens.
+53:17
+And then this reward model tells us, what is the good outcome or what is the good score associated
+53:23
+with this generation? However, in problems like math that we have ground truth
+53:29
+answer, we can have this verification function where the reward tells us, one, if the final answer is correct,
+53:37
+0 otherwise. Pretty much we had that for GSM8K,
+53:42
+which is one of our reasoning evals MATH and also precise instruction following. Let's imagine we are giving the model a bunch of constraints,
+53:52
+make sure to start the sentence with S then-- or to write a poem that has five words.
+54:00
+So you could verify if the generated outcome follows
+54:06
+these constraints or not. And then we can evaluate how-- we can easily
+54:13
+verify how good the generated outcome is.
+54:19
+So that was pretty much what we did. We replaced the reward model with the verification function.
+54:25
+And the DeepSeek R1 model that released earlier this year
+54:31
+also is using similar thing, which I think they call it a different name, but a very, very
+54:38
+similar intuitions. OK, to summarize, this is our setup.
+54:44
+We use gold final answer or verifiable constraints
+54:49
+as this environment, as a proxy for environment.
+54:55
+This is good because for this we don't need intermediate chain-of-thought. We just need a final answer.
+55:01
+Then we applied classical reinforcement learning algorithm to optimize this.
+55:06
+And here we used PPO for the optimization. And we tried it for three data sets GSM8K math
+55:14
+and if verification and we show the results. Roughly, this is the number of training instances that we have
+55:22
+used almost in the order of 110k.
+55:27
+We also evaluated on big bench heart, which is also roughly reasoning type task.
+55:34
+And then we found that this data set could be a good proxy to give us boosts on BPH.
+55:41
+Some of the verification steps are very easy,
+55:47
+like math and reasoning. It's pretty much just this if then else, which is if prediction is equal to this number, say yes,
+55:55
+otherwise zero. Some of it, for example, for constraints and constraint
+56:01
+satisfaction and verification, it's a little bit more challenging because we want to see, which of these constraints are satisfied?
+56:08
+And then we see, which percentage of those constraints are satisfied? But in general, pretty similar.
+56:13
+Pretty easy. So now, let's look at the curves. So I'm just showing this whole graph.
+56:20
+But now let me go a little bit deeper here. OK, so what does this curve tell us?
+56:29
+So on the x-axis, we see the training steps.
+56:34
+And on the y-axis, we show the GSM8K, the math reasoning
+56:40
+capability. This dashed green line is the outcome of the supervised finetuning model.
+56:47
+The pink one is the outcome of the DPO model. OK, so we applied a RLVR at two stages just
+56:54
+to see if it makes improvement both at the end of supervised finetuning and also at the end of DPO.
+57:01
+So what do we see? This is interesting curves show results are going up.
+57:07
+We don't see that much over parameter optimization here. The gains on top of SFT is much higher.
+57:13
+But the biggest gain or the highest number is achieved by when we apply it on DPO.
+57:20
+Same things on math. Again, at the beginning, we saw a little bit drop
+57:25
+when we started with DPO, but then, again, I start to see improvements.
+57:32
+IFEval, which is the verification and the constraint
+57:38
+optimization like instruction following. When we start from SFT, we saw significant gains.
+57:45
+On DPO, we saw less gains. We are still investigating on this, but we think the reason is we did not have enough data.
+57:53
+And interestingly, when we use VLAN data-- just to see, this was if we did not finally
+58:00
+include this in our RVR mix. But it was an interesting observation just
+58:05
+to see that doing some reinforcement learning on VLAN, it shows some improvements on some of the reasoning tasks.
+58:14
+And it's worth exploring this much more. And we are doing it just seeing, what other types of verifiable tasks out there such
+58:22
+that we can apply RLVR on that? OK, we also applied the same recipe on almost two
+58:31
+and we can build upon this. This is actually a very interesting setting.
+58:37
+We stacked a bunch of reinforcement learning steps one on top of each other.
+58:44
+So here we started doing a bunch of training and we cut it here.
+58:49
+This is the average score. And then, again, it started a little bit another step.
+58:55
+And then another stacked multiple RLVR and then did multiple stages. And over time, we saw even more improvement.
+59:02
+So the pipeline is there. We can do multiple trials with this
+59:08
+to see if we see bigger gains or not. OK, I want to take a step back and then talk about this thing.
+59:18
+RLVR is not really new. This is actually the simplest way of using RL with the data.
+59:28
+But why did it work now? We realized it's because and now base model qualities have
+59:34
+improved a lot. Therefore, RL can boost upon them. So what does this curve show me?
+59:41
+So these are training steps. This is the accuracy.
+59:46
+And the green bar shows when we do RLVR applying on GPT-2, the model that existed long time
+59:55
+ago, which was really bad. So the original number, the base numbers are very low unlike some of these reasoning tasks.
+1:00:02
+Therefore, reinforcement learning didn't show improvement. However, because now our base models are improving,
+1:00:10
+then applying RLVR on top of them shows significant gains. And this is very interesting to observe because now model can
+1:00:17
+start exploring more and then exploit it once it sees it is following with the reward,
+1:00:24
+with this rule-based reward. OK, so putting all this together,
+1:00:30
+we scale this up from 7B to 70B to 405B.
+1:00:36
+And this is our results how it looks. And the pink portion, you see the results of model applied
+1:00:45
+on Llama 405B at the-- Here are the results of SFT, DPO, and the final out of RLVR.
+1:00:54
+Again, this is the result comparing with DeepSeek V3 and GPT-4 or the latest version.
+1:01:00
+On average, we are very close to GPT-4 or better than DeepSeek V3.
+1:01:07
+And it's a very exciting area. Here are showing our results on 8B and 70B models, again,
+1:01:18
+comparing with open rate models like Qwen instruct and Llama instruct strike, which like better significantly and also
+1:01:25
+at 70B where the smaller model are also comparable to the smaller size of GPT-4, or mini, or cloud haiku.
+1:01:35
+OK, one other interesting observation was RLVR works better at scale.
+1:01:43
+So here shows our improvement on math in two cases.
+1:01:49
+Oh, I didn't put legend. So here on the left-hand side, you see how much improvement we
+1:01:56
+see on a 70B model. And this is how much improvement we saw on the right-hand side.
+1:02:03
+You see how much improvement we saw at 405B. And as you see here, we started from 60.
+1:02:09
+We went all the way to 67, 7% improvement on math.
+1:02:14
+Whereas at the 70B scale we go from 42 to 45.
+1:02:22
+So it was interesting and aligned with our hypothesis that when we have better bass, we
+1:02:27
+can start seeing a lot more improvement during this RLVR step. So we are exploring a lot and we know the community is also
+1:02:37
+exploring a lot in this setup. For example, we have changed our optimization algorithm from PPO
+1:02:45
+to GRPO, which I'm not going to go into the details. But now here are our significant improvements.
+1:02:52
+So as a reference, Tulu 3 405B has 67%.
+1:02:58
+And now, when we apply our recipe on Qwen math
+1:03:04
+model and then we apply GPU. Now, we are already getting 84.6, which is very exciting,
+1:03:11
+shows a lot of progress can be done in this domain. OK, so this is it.
+1:03:18
+So these are putting together all our Tulu 3 recipe. I first talked about how we got ingredients
+1:03:27
+ready by collecting data. Then we have different types of data at different stages
+1:03:33
+and we showed how we do supervised finetuning or instruction finetuning preference tuning, which
+1:03:39
+we looked at the preference data, and RLVR, which we just looked at this verification step.
+1:03:46
+And then putting all these together, we have Tulu 3. Here is the model.
+1:03:52
+We also have the demo of the model available in playground.allenai.org
+1:03:58
+where you can play with this. We are using this data to improve
+1:04:04
+the next version of the models and improve capabilities of Tulu 3.
+1:04:09
+Also, all our code data and the pipeline and the framework
+1:04:15
+is ready. So whatever post-trained model or adapted model
+1:04:20
+you want to build, we argue it's really important to bring in some of the general capabilities
+1:04:26
+to get better model. So I would encourage you to use that data.
+1:04:32
+OK, so this is a fully open post-training recipe. We have applied it to Llama-based model,
+1:04:39
+Qwen-based model, and also on our own OLMo models, which shows significant boosts on the OLMo-based models
+1:04:48
+as well. OK, so with that, I would end my discussions on post-training.
+1:04:55
+And I want to very briefly talk about test-time inference, which
+1:05:01
+is a very popular topic these days. And a lot of people are looking at how
+1:05:07
+to bring in test improvements, particularly in reasoning during test-time inference.
+1:05:14
+So I first want to talk about this paper called S1, which is led by amazing Niklas Muennighoff.
+1:05:23
+And it is actually the very minimal recipe for reasoning
+1:05:29
+and test-time scaling. So let me tell you how it works.
+1:05:34
+Very similar to almost everything else that is happening in language models, it
+1:05:41
+relies on really carefully curated data. We call it s1K.
+1:05:47
+Then we apply test-time scaling algorithm, a very simple one and this is the outcome s1.
+1:05:54
+OK, how do we curate data? We looked at a very large collection
+1:06:01
+of math, logical reasoning, probability questions, and so
+1:06:07
+on, more higher level reasoning data. It's even beyond the Tulu 3 data where we mostly
+1:06:14
+looked at grade school and math, which was high school, a little bit college level math.
+1:06:20
+Here we are looking at much more complex, like Olympiad math competition type data.
+1:06:27
+So we looked at all these logic puzzles math and we collected 59K question.
+1:06:34
+But then we did a lot of filtering here. We filtered for quality.
+1:06:39
+We got into 52K data. We picked the ones that were more difficult and then we moved
+1:06:46
+to 24K. And then we emphasized diversity and we removed the ones
+1:06:52
+that they were very similar. We ended up having 1K. So spoiler alert, on our benchmarks using 59K data and 1K
+1:07:01
+data almost similar, which is very interesting. So once we collected these prompts,
+1:07:08
+we started to distill reasoning traces and answers. So for example, when we have a problem like this,
+1:07:17
+we gave this problem, which is among our S1 data. And then we annotated the reasoning chain-of-thoughts
+1:07:27
+with Google thinking Gemini model. And also we made sure that this data also
+1:07:35
+includes some of the thinking tokens like, OK, this happens, but let me think more.
+1:07:41
+And so on. So we use this Google thinking annotations. And most recently in S1, we replaced Google Gemini result
+1:07:50
+annotations with DeepSeek r1 results where it actually improved the final results, which
+1:07:56
+was very interesting to see. OK, so this is the final collection of data.
+1:08:03
+The data varies across all these domains from geometry number theory to even various smaller portion on control theory,
+1:08:12
+astronomy, and so on. OK, so this is the data, test-time scaling.
+1:08:18
+The simplest method possible, which made all of us very surprised and excited where we focused on budget forcing,
+1:08:29
+where we have a question like this. How many hours are in raspberry? We let the model generate the response.
+1:08:36
+But then if it didn't hit the allocated token budget,
+1:08:42
+we added a token called weight and then let the model generate and basically force the model to generate more
+1:08:51
+in order to respond to that. We are using this weight token. We are hinting the model that we are not sure
+1:08:58
+if your answer is correct. So one more thing to add. We did not train a model to decide when to add weight.
+1:09:06
+We naturally added weight when it didn't hit our token model.
+1:09:12
+And then we let the model generate more until the final answer is achieved is obtained.
+1:09:18
+OK, so now training and results. we trained a Qwen 32B model on this data.
+1:09:26
+And here are our results. On the x-axis, we are seeing the number
+1:09:32
+of tokens, the average thinking time or the number of tokens that are generated and then the accuracy.
+1:09:38
+So when we push the model to just generate 512 tokens,
+1:09:44
+here is the accuracy, it's 65. One more thing. If the model wants to generate more tokens than the budget,
+1:09:54
+we put end of token there or end of a sentence there. So with that, we control the generation.
+1:10:02
+So we go from 5 to 2048 for MATH500 data.
+1:10:09
+And as you see over time with more generated tokens, we see this scaling trend.
+1:10:16
+On this Matt competition data, which is much more challenging data, we even
+1:10:22
+want the model to generate longer and longer token outcome.
+1:10:27
+And as you see here, we see, again, the same trend. And also PhD level GPQA demand, again,
+1:10:34
+generating longer and longer tokens, which is very exciting.
+1:10:41
+So zooming in here are a little bit of how it works. I explained it already.
+1:10:47
+So when the model wants to generate more tokens, we pushed end of sentence to be able to get these shorter
+1:10:56
+sequences. And when we want the model to generate longer,
+1:11:02
+even go beyond 8,000 tokens, we push this away token and force
+1:11:07
+the model to generate more. We compared different types of test-time scaling methods.
+1:11:16
+Here are the budget forcing. This steeper curve shows the budget forcing or sequential
+1:11:23
+scaling. We also did parallel scaling via majority voting
+1:11:30
+where we let the model generate multiple paths and then do majority voting or the self-consistency check.
+1:11:36
+And we saw some gains, but not that significant. So this budget forcing seemed much more successful
+1:11:46
+and much simpler. So here are some of these ablations that we have done in the model.
+1:11:53
+So this is the final results on the left-hand side of S1K on all those three data sets.
+1:12:00
+Comparing with full collection of data like using 59K,
+1:12:06
+we see that a little bit higher numbers we get with the full
+1:12:11
+data on AIME, but in other cases pretty much similar.
+1:12:18
+And our S1K data is really high quality. If we just use random or just do a bunch of constraints to find
+1:12:27
+that 1,000 data points, the results are much, much worse.
+1:12:33
+We also did a bunch of scaling ablations when we don't increase any--
+1:12:40
+let the model to train longer. This is the best number. So these are the gains that we are having
+1:12:47
+with this test-time scaling. If we replace the weight with other tokens
+1:12:53
+alternatively or just let the model generate without adding any strings, we saw less gains.
+1:13:02
+OK, so these are our results for test-time scaling.
+1:13:07
+I also want to highlight two other approaches that we have been cooking up over time.
+1:13:15
+And the idea is-- and I'm not going to talk about any details on these next two methods, but the idea is we want to be very aware
+1:13:24
+and do self-guided generation at inference time. In this work self-reg, we build a rack-based model retrieval
+1:13:34
+augmented generation model. But in this setting, we trained a language model
+1:13:40
+to generate tokens, but then criticize its outcomes and self-improve.
+1:13:46
+And we did it to the whole loop with generating these critic tokens where the model generates responses,
+1:13:55
+but once in a while, it generates tokens to say if the generated response makes sense
+1:14:03
+or not or if they retrieve documents make sense or not. So these are also very promising directions
+1:14:10
+in pushing for test-time scaling. We also showed that how this self-guided improvement
+1:14:19
+loop helps in synthesizing scientific literature and answering very complex questions about scientific tasks
+1:14:28
+that require lots and lots of reasoning. So please check out these two papers. The results are very interesting.
+1:14:36
+We also have a demo, which is openscholar.allen.ai, where
+1:14:42
+you can play with this system and type your question and then see how it can answer and combine
+1:14:49
+different pieces of information, synthesize knowledge, and then answer queries for this type of task.
+1:14:57
+OK, this is a demo and I would let you play with it.
+1:15:03
+So I want to very briefly also talk about how reasoning can get integrated during pretraining.
+1:15:14
+OK, so far what I talked about was post-training integrating
+1:15:19
+things at inference time. And now, let's go backward and then say see how these things can be added during training.
+1:15:28
+Remember, when I said RLVR didn't work when we had weaker base model.
+1:15:33
+So we need to push to have stronger and stronger base models.
+1:15:39
+So this is of-- when we say training-based model, it's not just training with the next token prediction
+1:15:46
+where learning rate stays the same and so on. We usually do multiple stages of training.
+1:15:52
+In this first stage we have the warm period, which
+1:15:57
+is a very standard method. But then we use cosine learning rate
+1:16:03
+to train these models with the next token prediction on trillions of tokens.
+1:16:09
+But then toward the end of training, we curate really, really high quality data in a lot of cases
+1:16:17
+designed to do more complex reasoning. And then we take the model that is
+1:16:22
+here, the learning rate that is here, and then a nearly to 0.
+1:16:28
+Sometimes this stage is called mid-training. The role of these 50 billion tokens
+1:16:35
+is very important because we still do next token prediction. But these tokens are very--
+1:16:42
+are trying to focus on very complex tasks and emphasize on more reasoning-oriented setting.
+1:16:51
+And roughly this is called nowadays pretraining and then mid-training.
+1:16:58
+So the pretraining stage, it uses most of the budget in the training stage.
+1:17:05
+It uses trillions of tokens. It's pretty much unstructured, diverse text.
+1:17:11
+Lots of it comes from web data. And we try to use the best type of data
+1:17:16
+that we could collect given the compute budget that we have. During mid-training, it's almost 1% of training.
+1:17:24
+The idea is we're going to upsample high quality data that we have during pretraining
+1:17:30
+and then to make sure that we have some in-domain data. But then we make sure to bring some event supervised fine
+1:17:37
+tuning data, we bring in a lot of reasoning type data coding data.
+1:17:42
+And we try to emphasize the quality of the data here.
+1:17:47
+So this is for example, the pretraining data mix that we use for OLMo 2, which are some of the web pages.
+1:17:55
+Some code data. I mean, the leftmost column matters less, the rightmost categories make more sense
+1:18:01
+to follow right now, our web pages, code data, academic papers, a stem papers, some math web pages, and math
+1:18:09
+proof, and so on. And in total we have roughly 4 trillion tokens.
+1:18:15
+But then during mid-training stage, we started to bring in lots and lots of math data, which
+1:18:24
+started to patch the math reasoning capabilities that the model didn't originally have.
+1:18:29
+For example, this was very interesting observation. We realized at the end of this stage
+1:18:35
+the OLMo model was not that good in doing multiplication, but much better in doing addition and subtraction.
+1:18:41
+So we started integrating some synthetic multiplication data
+1:18:49
+in the mid-training set. So we you cannot observe do a lot of evaluations and then
+1:18:55
+figure out, do some patching to improve the model. And then inject that type of knowledge in the model.
+1:19:02
+So as you see in our mid-training mix, we included a lot of reasoning type data.
+1:19:11
+And then we started evaluating these models. So this is evaluating our pretraining and mid-training
+1:19:21
+together. On average, we see significant boost in both setting like from 50 we go to 60.
+1:19:27
+From 56 we go to 68. And the biggest gains are on GSM8K
+1:19:34
+which is our math reasoning capabilities and drop, which is also question answering with math data, which
+1:19:41
+is showing significant boosts there, which is very interesting. OK, so putting all these together,
+1:19:49
+here are our two results, which is on par with Llama 3 8B.
+1:19:55
+Please refer to the paper to look at the 13B. And most recently, we're going to have a 32B results.
+1:20:03
+OK, so with that, I want to finish this that we've seen a lot of progress in today's AI work.
+1:20:12
+Still we need a lot of research and innovation in many newer tasks. So here I've listed a lot of them,
+1:20:19
+a lot of them relevant to reasoning agents, language models for other domains,
+1:20:25
+and so on, which I really would be excited if I see you work on that.
+1:20:32
+With that, I want to thank a lot of people who are in my team, in the OLMo and Tulu projects,
+1:20:40
+and also my students at UW and a lot of people at AI too. So thank you very much.
+1:20:46
+Also, if you are interested, we are hiring for all these projects.
+1:20:51
+Thank you.

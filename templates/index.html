@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Faro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>Faro, a Personalized AI Seminar Copilot</h1>
+        <p>
+          Faro harnesses STT to adapt dense seminar material to each attendee's unique background and level of understanding in real time.
+        </p>
+      </header>
+
+      <!-- YouTube video section: will appear after Start Session is pressed -->
+      <section id="video-section" class="hidden">
+        <div id="video-container">
+          <!--
+            TODO: Put your YouTube embed URL here in main.js (see YOUTUBE_EMBED_URL
+            constant). This iframe's src will be set automatically when the
+            session starts.
+          -->
+          <iframe
+            id="youtube-player"
+            src=""
+            title="YouTube video player"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          ></iframe>
+        </div>
+      </section>
+
+      <section id="setup-section">
+        <form id="profile-form">
+          <h2>Your Background</h2>
+
+          <label>
+            Highest level of education, experience, and field
+            <input type="text" name="education" required />
+          </label>
+
+          <label>
+            Briefly Share Your Technical Background
+            <textarea name="ml_background" rows="2"></textarea>
+          </label>
+
+          <label>
+            Relevant topics you feel weak on
+            <textarea name="weak_topics" rows="2"></textarea>
+          </label>
+
+          <label>
+            Main goal for this talk (e.g., high-level intuition, technical details, etc)
+            <textarea name="goal" rows="2"></textarea>
+          </label>
+
+          <div class="form-row">
+            <label>
+              Playback speed
+              <select name="speed">
+                <option value="0.75">0.75x</option>
+                <option value="1.0" selected>1.0x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2.0">2.0x</option>
+              </select>
+            </label>
+
+            <label>
+              Commentary style
+              <select name="commentary_style">
+                <option value="low">Low (only when needed)</option>
+                <option value="medium" selected>Medium (balanced)</option>
+                <option value="high">High (very proactive)</option>
+              </select>
+            </label>
+          </div>
+
+          <button type="submit">Start Session</button>
+          <span id="status" aria-live="polite"></span>
+        </form>
+      </section>
+
+      <section id="main-layout" class="hidden">
+        <div id="transcript-pane">
+          <h2>Transcript</h2>
+          <div id="transcript"></div>
+        </div>
+
+        <div id="commentary-pane">
+          <h2>Commentary</h2>
+          <div id="commentary-list"></div>
+        </div>
+      </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+  </body>
+  </html>
