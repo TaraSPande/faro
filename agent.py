@@ -256,7 +256,7 @@ def print_commentary(commentary: str, current_timestamp: str) -> None:
     print("\033[95m=== End Commentary ===\033[0m\n")
 
 
-def get_openai_client() -> OpenAI:
+def get_openai_client():# -> OpenAI:
     """Create an OpenAI client, ensuring the library is installed and a key set."""
 
     if OpenAI is None:
@@ -281,7 +281,7 @@ def get_openai_client() -> OpenAI:
 
 
 def generate_commentary(
-    client: OpenAI,
+    client,#: OpenAI,
     model: str,
     user_profile: str,
     window_segments: List[TranscriptSegment],
@@ -402,7 +402,7 @@ def generate_commentary(
 
 def run_playback(
     segments: List[TranscriptSegment],
-    client: OpenAI,
+    client, #: OpenAI,
     model: str,
     user_profile: str,
     speed: float,
