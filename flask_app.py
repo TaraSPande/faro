@@ -24,7 +24,7 @@ import json
 import time
 from typing import Iterable, List, Set
 
-from flask import Flask, Response, render_template, request, stream_with_context
+from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 import agent  # reuse transcript parsing and commentary logic
 
@@ -173,6 +173,134 @@ def stream() -> Response:
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache"},
     )
+
+
+@app.post("/api/commentary")
+def api_commentary() -> Response:
+    """Generate commentary for a live, incrementally built transcript.
+
+    The client sends a list of recent transcript segments plus the user's
+    profile and commentary preferences. We reuse the same commentary logic
+    from ``agent.generate_commentary`` that powers the recorded playback.
+
+    Expected JSON payload:
+
+        {
+          "segments": [
+            {"start_seconds": float, "raw_timestamp": str, "text": str},
+            ...
+          ],
+          "user_profile": str,
+          "commentary_style": "low" | "medium" | "high",
+          "model": str
+        }
+
+    The response JSON has the shape:
+
+        {
+          "need_commentary": bool,
+          "commentary": str,
+          "highlight_phrases": [str, ...],
+          "timestamp": str  # timestamp of the most recent segment
+        }
+    """
+
+    try:
+        data = request.get_json(force=True, silent=False)  # type: ignore[arg-type]
+    except Exception:
+        return jsonify({
+            "need_commentary": False,
+            "commentary": "",
+            "highlight_phrases": [],
+            "error": "Invalid JSON payload",
+        }), 400
+
+    segments_in = data.get("segments") if isinstance(data, dict) else None
+    if not isinstance(segments_in, list) or not segments_in:
+        # Nothing to analyze – gracefully indicate no commentary.
+        return jsonify({
+            "need_commentary": False,
+            "commentary": "",
+            "highlight_phrases": [],
+        })
+
+    user_profile = str(data.get("user_profile", ""))
+    commentary_style = str(data.get("commentary_style", "medium"))
+    model = str(data.get("model", "gpt-4o-mini"))
+
+    # Map incoming dicts to agent.TranscriptSegment objects.
+    segments: List[agent.TranscriptSegment] = []
+    for item in segments_in:
+        if not isinstance(item, dict):
+            continue
+        try:
+            start_seconds = float(item.get("start_seconds", 0.0))
+        except (TypeError, ValueError):
+            start_seconds = 0.0
+        raw_timestamp = str(item.get("raw_timestamp", "0:00"))
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        segments.append(
+            agent.TranscriptSegment(
+                start_seconds=start_seconds,
+                raw_timestamp=raw_timestamp,
+                text=text,
+            )
+        )
+
+    if not segments:
+        return jsonify({
+            "need_commentary": False,
+            "commentary": "",
+            "highlight_phrases": [],
+        })
+
+    # Build a sliding ~90s context window based on the most recent segment.
+    last_seg = segments[-1]
+    window_start_cutoff = last_seg.start_seconds - 90.0
+    window_segments: List[agent.TranscriptSegment] = [
+        s for s in segments if s.start_seconds >= window_start_cutoff
+    ]
+
+    try:
+        client = agent.get_openai_client()
+        commentary = agent.generate_commentary(
+            client=client,
+            model=model,
+            user_profile=user_profile,
+            window_segments=window_segments,
+            commentary_style=commentary_style,
+            explained_phrases=None,
+        )
+    except Exception as e:  # pragma: no cover - runtime API failures
+        return jsonify({
+            "need_commentary": False,
+            "commentary": "",
+            "highlight_phrases": [],
+            "error": str(e),
+        }), 500
+
+    if not commentary:
+        return jsonify({
+            "need_commentary": False,
+            "commentary": "",
+            "highlight_phrases": [],
+            "timestamp": last_seg.raw_timestamp,
+        })
+
+    highlight_phrases = [
+        p.strip()
+        for p in agent.extract_highlight_phrases(commentary)
+        if p.strip()
+    ]
+
+    return jsonify({
+        "need_commentary": True,
+        "commentary": commentary,
+        "highlight_phrases": highlight_phrases,
+        "timestamp": last_seg.raw_timestamp,
+    })
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point
