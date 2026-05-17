@@ -55,6 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let liveSegments = []; // { startSeconds, rawTimestamp, text }
   let liveCommentaryEvents = []; // { timestamp, text }
   let isLiveMode = false;
+  let explainedPhrases = []; // running list of phrases already explained
   let currentProfile = "";
   let currentCommentaryStyle = "medium";
   let currentModel = "gpt-4o-mini";
@@ -99,6 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     isLiveMode = mode === "live";
     liveCommentaryEvents = [];
+    explainedPhrases = [];
 
     form.querySelector("button[type='submit']").disabled = true;
 
@@ -332,7 +334,9 @@ document.addEventListener("DOMContentLoaded", () => {
     commentaryRequestInFlight = true;
 
     const last = liveSegments[liveSegments.length - 1];
-    const cutoff = last.startSeconds - 90.0;
+    // Use a slightly shorter window in live mode to focus on more recent
+    // content and reduce repeated explanations of distant material.
+    const cutoff = last.startSeconds - 60.0;
     const windowSegments = liveSegments.filter(
       (s) => s.startSeconds >= cutoff,
     );
@@ -353,6 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
           user_profile: currentProfile,
           commentary_style: currentCommentaryStyle,
           model: currentModel,
+          explained_phrases: explainedPhrases,
         }),
       });
 
@@ -369,6 +374,16 @@ document.addEventListener("DOMContentLoaded", () => {
           highlight_phrases: data.highlight_phrases || [],
         });
         liveCommentaryEvents.push({ timestamp: ts, text: data.commentary });
+        // Track newly explained phrases so we can avoid re-explaining them
+        // in future calls.
+        if (Array.isArray(data.highlight_phrases)) {
+          for (const phrase of data.highlight_phrases) {
+            const p = (phrase || "").trim();
+            if (p && !explainedPhrases.includes(p)) {
+              explainedPhrases.push(p);
+            }
+          }
+        }
         highlightPhrases(data.highlight_phrases || []);
       }
     } catch (err) {

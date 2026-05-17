@@ -228,6 +228,15 @@ def api_commentary() -> Response:
     commentary_style = str(data.get("commentary_style", "medium"))
     model = str(data.get("model", "gpt-4o-mini"))
 
+    # Optional list of phrases that have already been explained in this
+    # session, provided by the live client. We use this both to condition the
+    # model (via generate_commentary) and to suppress pure repeats.
+    explained_list = data.get("explained_phrases") if isinstance(data, dict) else None
+    if isinstance(explained_list, list):
+        explained_set = {str(p).strip() for p in explained_list if str(p).strip()}
+    else:
+        explained_set = set()
+
     # Map incoming dicts to agent.TranscriptSegment objects.
     segments: List[agent.TranscriptSegment] = []
     for item in segments_in:
@@ -271,7 +280,7 @@ def api_commentary() -> Response:
             user_profile=user_profile,
             window_segments=window_segments,
             commentary_style=commentary_style,
-            explained_phrases=None,
+            explained_phrases=explained_set or None,
         )
     except Exception as e:  # pragma: no cover - runtime API failures
         return jsonify({
@@ -294,6 +303,18 @@ def api_commentary() -> Response:
         for p in agent.extract_highlight_phrases(commentary)
         if p.strip()
     ]
+
+    # If *all* highlighted phrases are already in the explained set, we can
+    # safely suppress this commentary to avoid repetition.
+    if highlight_phrases and explained_set and all(
+        p in explained_set for p in highlight_phrases
+    ):
+        return jsonify({
+            "need_commentary": False,
+            "commentary": "",
+            "highlight_phrases": [],
+            "timestamp": last_seg.raw_timestamp,
+        })
 
     return jsonify({
         "need_commentary": True,
