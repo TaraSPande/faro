@@ -41,6 +41,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const mainLayout = document.getElementById("main-layout");
   const transcriptEl = document.getElementById("transcript");
   const commentaryListEl = document.getElementById("commentary-list");
+  const pauseBtn = document.getElementById("pause-live");
+  const resumeBtn = document.getElementById("resume-live");
+  const stopBtn = document.getElementById("stop-live");
+  const downloadTranscriptBtn = document.getElementById("download-transcript");
+  const downloadCommentaryBtn = document.getElementById("download-commentary");
 
   let eventSource = null;
   let recognition = null;
@@ -48,6 +53,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let isRecognitionRunning = false;
   let sessionStartMs = null;
   let liveSegments = []; // { startSeconds, rawTimestamp, text }
+  let liveCommentaryEvents = []; // { timestamp, text }
+  let isLiveMode = false;
   let currentProfile = "";
   let currentCommentaryStyle = "medium";
   let currentModel = "gpt-4o-mini";
@@ -90,14 +97,30 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    isLiveMode = mode === "live";
+    liveCommentaryEvents = [];
+
     form.querySelector("button[type='submit']").disabled = true;
 
     if (mode === "recorded") {
       startRecordedSession({ profile, speed, commentaryStyle });
+      setLiveControlsEnabled(false);
     } else {
       startLiveSession({ profile, commentaryStyle });
+      setLiveControlsEnabled(true);
     }
   });
+
+  function setLiveControlsEnabled(enabled) {
+    if (!pauseBtn || !resumeBtn || !stopBtn || !downloadTranscriptBtn || !downloadCommentaryBtn) return;
+    const disabled = !enabled;
+    pauseBtn.disabled = disabled;
+    stopBtn.disabled = disabled;
+    downloadTranscriptBtn.disabled = disabled;
+    downloadCommentaryBtn.disabled = disabled;
+    // Resume is only enabled after a pause.
+    resumeBtn.disabled = true;
+  }
 
   function startRecordedSession({ profile, speed, commentaryStyle }) {
     const params = new URLSearchParams({
@@ -314,12 +337,19 @@ document.addEventListener("DOMContentLoaded", () => {
       (s) => s.startSeconds >= cutoff,
     );
 
+    // Map to the shape expected by the backend API.
+    const apiSegments = windowSegments.map((s) => ({
+      start_seconds: s.startSeconds,
+      raw_timestamp: s.rawTimestamp,
+      text: s.text,
+    }));
+
     try {
       const resp = await fetch("/api/commentary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          segments: windowSegments,
+          segments: apiSegments,
           user_profile: currentProfile,
           commentary_style: currentCommentaryStyle,
           model: currentModel,
@@ -338,6 +368,7 @@ document.addEventListener("DOMContentLoaded", () => {
           text: data.commentary,
           highlight_phrases: data.highlight_phrases || [],
         });
+        liveCommentaryEvents.push({ timestamp: ts, text: data.commentary });
         highlightPhrases(data.highlight_phrases || []);
       }
     } catch (err) {
@@ -347,6 +378,95 @@ document.addEventListener("DOMContentLoaded", () => {
     } finally {
       commentaryRequestInFlight = false;
     }
+  }
+
+  function downloadText(filename, content) {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  if (pauseBtn) {
+    pauseBtn.addEventListener("click", () => {
+      if (!isLiveMode) return;
+      shouldKeepListening = false;
+      if (recognition && isRecognitionRunning) {
+        try {
+          recognition.stop();
+        } catch (_) {}
+      }
+      statusEl.textContent = "Listening paused";
+      pauseBtn.disabled = true;
+      if (resumeBtn) resumeBtn.disabled = false;
+    });
+  }
+
+  if (resumeBtn) {
+    resumeBtn.addEventListener("click", () => {
+      if (!isLiveMode) return;
+      if (!SpeechRecognition) return;
+      shouldKeepListening = true;
+      configureRecognition();
+      if (!isRecognitionRunning && recognition) {
+        try {
+          recognition.start();
+          statusEl.textContent = "Listening...";
+        } catch (err) {
+          console.error("Could not resume recognition", err);
+          statusEl.textContent = `Could not resume recognition: ${err.message}`;
+          statusEl.classList.add("error-text");
+        }
+      }
+      resumeBtn.disabled = true;
+      if (pauseBtn) pauseBtn.disabled = false;
+    });
+  }
+
+  if (stopBtn) {
+    stopBtn.addEventListener("click", () => {
+      if (!isLiveMode) return;
+      shouldKeepListening = false;
+      if (recognition && isRecognitionRunning) {
+        try {
+          recognition.stop();
+        } catch (_) {}
+      }
+      statusEl.textContent = "Live session stopped";
+      form.querySelector("button[type='submit']").disabled = false;
+      setLiveControlsEnabled(false);
+    });
+  }
+
+  if (downloadTranscriptBtn) {
+    downloadTranscriptBtn.addEventListener("click", () => {
+      if (!liveSegments.length) {
+        alert("No transcript available yet.");
+        return;
+      }
+      const lines = liveSegments.map(
+        (s) => `[${s.rawTimestamp}] ${s.text}`,
+      );
+      downloadText("faro_transcript.txt", lines.join("\n"));
+    });
+  }
+
+  if (downloadCommentaryBtn) {
+    downloadCommentaryBtn.addEventListener("click", () => {
+      if (!liveCommentaryEvents.length) {
+        alert("No commentary available yet.");
+        return;
+      }
+      const chunks = liveCommentaryEvents.map(
+        (c) => `[${c.timestamp}]\n${c.text}`,
+      );
+      downloadText("faro_commentary.txt", chunks.join("\n\n"));
+    });
   }
 
   function appendSegment(payload) {

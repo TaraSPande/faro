@@ -95,6 +95,18 @@
       <section id="main-layout" class="hidden">
         <div id="transcript-pane">
           <h2>Transcript</h2>
+          <!-- Live-mode controls: only meaningful when Mode = Live (microphone) -->
+          <div class="live-controls">
+            <button id="pause-live" type="button" disabled>Pause</button>
+            <button id="resume-live" type="button" disabled>Resume</button>
+            <button id="stop-live" type="button" disabled>Stop</button>
+            <button id="download-transcript" type="button" disabled>
+              Download transcript (.txt)
+            </button>
+            <button id="download-commentary" type="button" disabled>
+              Download commentary (.txt)
+            </button>
+          </div>
           <div id="transcript"></div>
         </div>
 
